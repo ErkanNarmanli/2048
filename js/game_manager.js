@@ -4,9 +4,13 @@ function GameManager(size, InputManager, Actuator, StorageManager) {
   this.storageManager = new StorageManager;
   this.actuator       = new Actuator;
 
+  this.player         = 0; // MODIF : player playing ; 0 = computer ; 1 = human
+  this.startTilesCount= 0; // MODIF : first tiles
+
   this.startTiles     = 2;
 
   this.inputManager.on("move", this.move.bind(this));
+  this.inputManager.on("moveAI", this.moveAI.bind(this)); // MODIF : listen to computer's moves
   this.inputManager.on("restart", this.restart.bind(this));
   this.inputManager.on("keepPlaying", this.keepPlaying.bind(this));
 
@@ -17,6 +21,8 @@ function GameManager(size, InputManager, Actuator, StorageManager) {
 GameManager.prototype.restart = function () {
   this.storageManager.clearGameState();
   this.actuator.continueGame(); // Clear the game won/lost message
+  this.player         = 0; // MODIF : player playing ; 0 = computer ; 1 = human
+  this.startTilesCount= 0; // MODIF : first tiles
   this.setup();
 };
 
@@ -33,6 +39,7 @@ GameManager.prototype.isGameTerminated = function () {
 
 // Set up the game
 GameManager.prototype.setup = function () {
+  // TODO : move the this.player here (from restart and gameManager) + startTilesCount
   var previousState = this.storageManager.getGameState();
 
   // Reload the game from a previous game if present
@@ -51,7 +58,7 @@ GameManager.prototype.setup = function () {
     this.keepPlaying = false;
 
     // Add the initial tiles
-    this.addStartTiles();
+    //this.addStartTiles(); // useless
   }
 
   // Update the actuator
@@ -65,6 +72,7 @@ GameManager.prototype.addStartTiles = function () {
   }
 };
 
+// MODIF : not needed ; to be cleaned
 // Adds a tile in a random position
 GameManager.prototype.addRandomTile = function () {
   if (this.grid.cellsAvailable()) {
@@ -133,6 +141,8 @@ GameManager.prototype.move = function (direction) {
 
   if (this.isGameTerminated()) return; // Don't do anything if the game's over
 
+  if (this.player == 0) return; // MODIF : Don't do anything if it is up to the computer
+
   var cell, tile;
 
   var vector     = this.getVector(direction);
@@ -180,15 +190,42 @@ GameManager.prototype.move = function (direction) {
   });
 
   if (moved) {
-    this.addRandomTile();
+//  this.addRandomTile(); // MODIF : has become useless
 
-    if (!this.movesAvailable()) {
+   if (!this.movesAvailable()) {
       this.over = true; // Game over!
     }
+    // MODIF : next time, it'll be up to the computer
+    this.player = 0;
 
     this.actuate();
   }
 };
+
+// MODIF : [...]
+// Move tiles on the grid in the specified direction
+GameManager.prototype.moveAI = function (pos) {
+  // MODIF : pos = ??
+  // no need to check that the cell in inoccupied thanks to HTML (...)
+  var self = this;
+
+  if (this.isGameTerminated()) return; // Don't do anything if the game's over
+
+  if (this.player == 1) return; // MODIF : Don't do anything if it is up to the human
+
+  this.grid.insertTile(new Tile(pos, pos.value));
+  if (this.startTilesCount < this.startTiles - 1) {
+    this.startTilesCount++;
+  } else {
+    this.player = 1;
+  }
+  if (!this.movesAvailable()) {
+    this.over = true; // Game over!
+  }
+  this.actuator.addTile(pos);
+};
+
+
 
 // Get the vector representing the chosen direction
 GameManager.prototype.getVector = function (direction) {
